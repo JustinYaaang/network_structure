@@ -13,7 +13,8 @@
 
 #include <stdio.h>
 #include <assert.h>
-
+#include <stdlib.h>
+#include <string.h>
 
 #include "sr_if.h"
 #include "sr_rt.h"
@@ -50,6 +51,96 @@ void sr_init(struct sr_instance* sr)
 
 } /* -- sr_init -- */
 
+
+/*retrieve arp header*/
+sr_arp_hdr_t *retrieve_arp_hdr(uint8_t *packet)
+{
+    return (sr_arp_hdr_t *)(packet + sizeof(sr_ethernet_hdr_t));
+}
+
+
+/*retrieve ethernet header*/
+sr_ethernet_hdr_t *retrieve_ethernet_hdr(uint8_t *packet)
+{
+    return (sr_ethernet_hdr_t *)packet;
+}
+
+
+/*---------------------------------------------------------------------
+ * Method: sr_handle_arp_packet(uint8_t* p,char* interface)
+ * Scope:  Global
+ *
+ * This method is called each time the router receives a arp packet on the
+ * interface.
+ *---------------------------------------------------------------------*/
+
+void  sr_handle_arp_packet(struct sr_instance* sr,
+        uint8_t * packet/* lent */,
+        unsigned int len,
+        char* interface/* lent */)
+{
+    sr_arp_hdr_t *received_arp_hdr = retrieve_arp_hdr(packet);  
+    /*handle arp request*/
+    if (received_arp_hdr->ar_op == htons(arp_op_request)){
+        printf("arp packet\n");
+        /*comapre the ip address of router's interface and the ip address of arp request'
+        interface*/
+
+        struct sr_if *router_if = sr_get_interface(sr, interface);
+        uint32_t ar_target_ip = received_arp_hdr -> ar_tip;  		
+        uint32_t router_ip = router_if -> ip;  		
+        printf("taget ip: %d\n", ar_target_ip);
+        printf("router ip: %d\n", router_ip);
+        
+        if (ar_target_ip == router_ip){
+            printf("the target ip of the arp request is the router's ip\n");
+            /*send arp reply back*/
+            sr_ethernet_hdr_t *received_ethernet_hdr = retrieve_ethernet_hdr(packet);
+            
+            /* construct the ethernet header*/
+            sr_ethernet_hdr_t * arp_reply_hdr = (sr_ethernet_hdr_t *) malloc(sizeof(sr_ethernet_hdr_t)); 
+            memcpy(arp_reply_hdr->ether_dhost, received_ethernet_hdr->ether_shost, ETHER_ADDR_LEN); 
+            memcpy(arp_reply_hdr->ether_shost,router_if-> addr, ETHER_ADDR_LEN); 
+            arp_reply_hdr->ether_type = htons(ethertype_arp); 
+
+            /* construct the ethernet body(arp header)*/
+            sr_arp_hdr_t * arp_reply_body = (sr_arp_hdr_t *) malloc(sizeof(sr_arp_hdr_t));       
+            memcpy(arp_reply_body, received_arp_hdr, sizeof(sr_arp_hdr_t)); 
+            arp_reply_body -> ar_op = htons(arp_op_reply); 
+            memcpy(arp_reply_body->ar_sha, router_if-> addr, ETHER_ADDR_LEN); 
+            arp_reply_body -> ar_sip = router_ip; 
+            memcpy(arp_reply_body->ar_tha, received_ethernet_hdr->ether_shost, ETHER_ADDR_LEN); 
+            arp_reply_body -> ar_tip = received_arp_hdr -> ar_sip; 
+
+            /*construct the ethernet packet(arp reply)*/
+            uint8_t * arp_reply_packet = (uint8_t *) malloc(sizeof(sr_ethernet_hdr_t)+sizeof(sr_arp_hdr_t));       
+            memcpy(arp_reply_packet, arp_reply_hdr, sizeof(sr_ethernet_hdr_t));
+            memcpy(arp_reply_packet+sizeof(sr_ethernet_hdr_t), arp_reply_body, sizeof(sr_arp_hdr_t));
+/*
+            free(arp_reply_hdr);
+            free(arp_reply_body);
+*/
+            /*print checker*/
+	    printf("arp_reply_hdr->ether_dhost: %d\n", *(arp_reply_hdr->ether_dhost));
+	    printf("client add: %d\n", *(received_ethernet_hdr->ether_shost));
+	    print_hdrs(arp_reply_packet, len);
+
+
+            sr_send_packet(sr, arp_reply_packet, len, interface);
+
+
+
+        }
+        
+        
+
+
+    }    
+
+
+
+}
+
 /*---------------------------------------------------------------------
  * Method: sr_handlepacket(uint8_t* p,char* interface)
  * Scope:  Global
@@ -77,8 +168,29 @@ void sr_handlepacket(struct sr_instance* sr,
   assert(interface);
 
   printf("*** -> Received packet of length %d \n",len);
-
+  
   /* fill in code here */
+  /*check interface first*/
+	
+
+  /*handle arp request and reply*/ 
+  if (ethertype(packet) == ethertype_arp){
+      sr_handle_arp_packet(sr, packet, len, interface);
+  }
+  else if (ethertype(packet) == ethertype_ip){
+    printf("ip packet\n");
+  }
+
+
+  /*length sanity-check*/ 
+  if (len < (sizeof(sr_arp_hdr_t) + sizeof(sr_ethernet_hdr_t))){
+    printf("size error\n");
+    return;
+  } 
+  else{
+    printf("size is satisfied\n");
+  } 
+
 
 }/* end sr_ForwardPacket */
 
