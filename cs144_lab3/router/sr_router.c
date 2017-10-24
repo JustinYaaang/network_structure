@@ -95,8 +95,14 @@ void send_icmp_packet(struct sr_instance *sr, uint8_t *packet, unsigned int len,
     
     if (icmp_type == 0) { /* Send back original data with headers if type 0 */
         outgoing_len = len;
+        
+        
+                
+        
+        
         uint8_t *sent_icmp_packet = (uint8_t *)malloc(outgoing_len);
         sr_icmp_hdr_t *send_icmp_header = retrieve_icmp_hdr(sent_icmp_packet);
+        
         memset(sent_icmp_packet, 0, sizeof(uint8_t) * outgoing_len);
         sr_ip_hdr_t *send_ip_header = retrieve_ip_hdr(sent_icmp_packet);
         sr_ethernet_hdr_t *send_ethernet_header = retrieve_ethernet_hdr(sent_icmp_packet);
@@ -120,6 +126,7 @@ void send_icmp_packet(struct sr_instance *sr, uint8_t *packet, unsigned int len,
         send_ip_header->ip_dst = original_ip_header->ip_src;
         send_ip_header->ip_len = htons(outgoing_len - sizeof(sr_ethernet_hdr_t));
         send_ip_header->ip_src = source_ip;
+        send_ip_header->ip_sum = 0;
         send_ip_header->ip_sum = cksum(send_ip_header, sizeof(sr_ip_hdr_t));
         /*Prepare Ethernet Header*/
         memcpy(send_ethernet_header->ether_shost, outgoing_interface->addr, sizeof(uint8_t) * ETHER_ADDR_LEN);
@@ -154,6 +161,7 @@ void send_icmp_packet(struct sr_instance *sr, uint8_t *packet, unsigned int len,
         send_ip_header->ip_dst = original_ip_header->ip_src;
         send_ip_header->ip_len = htons(outgoing_len - sizeof(sr_ethernet_hdr_t));
         send_ip_header->ip_src = source_ip;
+        send_ip_header->ip_sum = 0;
         send_ip_header->ip_sum = cksum(send_ip_header, sizeof(sr_ip_hdr_t));
         /*Prepare Ethernet Header*/
         memcpy(send_ethernet_header->ether_shost, outgoing_interface->addr, sizeof(uint8_t) * ETHER_ADDR_LEN);
