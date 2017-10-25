@@ -166,13 +166,28 @@ void send_icmp_packet(struct sr_instance *sr, uint8_t *packet, unsigned int len,
     return;
 }
 
+struct sr_if *get_interface_from_ip(struct sr_instance *sr, uint32_t ip_address)
+{
+    struct sr_if *current_interface = sr->if_list;
+    struct sr_if *dest_interface = NULL;
+    while (current_interface) {
+        if (ip_address == current_interface->ip) { /* left, none */
+            dest_interface = current_interface;
+            break;
+        }
+        current_interface = current_interface->next;
+    }
+    return dest_interface;
+}
+
 struct sr_if *get_interface_from_eth(struct sr_instance *sr, uint8_t *eth_address)
 {
     struct sr_if *current_interface = sr->if_list;
-    struct sr_if *destination_interface = NULL;
-    short match_found, i;
+    struct sr_if *dest_interface = NULL;
+    short match_found = 0;
     while (current_interface) {
         match_found = 1;
+        int i=0;
         for (i = 0; i < ETHER_ADDR_LEN; i++) {
             if (current_interface->addr[i] != eth_address[i]) {
                 match_found = 0;
@@ -180,13 +195,13 @@ struct sr_if *get_interface_from_eth(struct sr_instance *sr, uint8_t *eth_addres
             }
         }
         if (match_found) {
-            fprintf(stderr, "get_interface_from_eth found a matching interface.\n");
-            destination_interface = current_interface;
+            fprintf(stderr, "A matching interface is found based on the ethernet address.\n");
+            dest_interface = current_interface;
             break;
         }
         current_interface = current_interface->next;
     }
-    return destination_interface;
+    return dest_interface;
 }
 
 /*
@@ -256,6 +271,13 @@ void  sr_handle_arp_packet(struct sr_instance* sr,
         unsigned int len,
         char* interface/* lent */)
 {
+
+    if (len <(sizeof(sr_arp_hdr_t) + sizeof(sr_ethernet_hdr_t))) {
+        fprintf(stderr, "Error: This is an invalid arp packet because of the length.\n");
+        return;
+    }
+
+
     sr_arp_hdr_t *received_arp_hdr = retrieve_arp_hdr(packet);  
     struct sr_if *router_if = sr_get_interface(sr, interface);
     /*handle arp request*/
@@ -280,12 +302,10 @@ void  sr_handle_arp_packet(struct sr_instance* sr,
         } 
 
         if (router_found > 0){
-            printf("the target ip of the arp request is the router's ip\n");
-           
             /* send arp reply back*/
             sr_ethernet_hdr_t *received_ethernet_hdr = retrieve_ethernet_hdr(packet);
             
-            /*construct the ethernet header*/
+            /*construct the ethernet header(arp reply)*/
             sr_ethernet_hdr_t * arp_reply_hdr = (sr_ethernet_hdr_t *) malloc(sizeof(sr_ethernet_hdr_t)); 
             memcpy(arp_reply_hdr->ether_dhost, received_ethernet_hdr->ether_shost, ETHER_ADDR_LEN); 
             memcpy(arp_reply_hdr->ether_shost,router_if-> addr, ETHER_ADDR_LEN); 
@@ -312,7 +332,8 @@ void  sr_handle_arp_packet(struct sr_instance* sr,
 
         }
         else{
-            printf("send to the other routersi\n");
+            printf("This packet is sent to the other routers, just drop it\n");
+            return;
         }
 
     }
@@ -377,7 +398,25 @@ void  sr_handle_ip_packet(struct sr_instance* sr,
         printf("size error: the size of the packet doesn't match the minimum of the valid packet\n");
         return;
     } 
+
+    /*checksum sanity-check*/
     sr_ip_hdr_t *received_ip_hdr = retrieve_ip_hdr(packet); 
+
+    uint16_t received_ip_hdr_sum = received_ip_hdr->ip_sum;
+    received_ip_hdr->ip_sum = 0;
+
+    uint16_t computed_ip_hdr_sum = cksum(received_ip_hdr, sizeof(sr_ip_hdr_t));
+
+    if (received_ip_hdr_sum == computed_ip_hdr_sum){
+        received_ip_hdr->ip_sum = computed_ip_hdr_sum;
+    }
+    else{
+        printf("ip_sum: %d\n", received_ip_hdr_sum);
+        printf("computed ip_sum: %d\n", computed_ip_hdr_sum);
+        fprintf(stderr, "IP checksum is wrong\n");
+        return;
+    } 
+
     if((received_ip_hdr -> ip_ttl) < 1){
         printf("ttl error: the ttl is expired\n");
         send_icmp_packet(sr, packet, len, interface, 11, 0, NULL);
@@ -385,8 +424,52 @@ void  sr_handle_ip_packet(struct sr_instance* sr,
         return;
 
     }
-    else{
 
+    /* Check if this packet is destined for one of the interfaces of the router*/
+    struct sr_if *dest_if = get_interface_from_ip(sr, received_ip_hdr->ip_dst);
+    if (dest_if){
+        if (received_ip_hdr->ip_p == ip_protocol_icmp) {
+            if (len < (sizeof(sr_icmp_hdr_t) + sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t))) {
+                fprintf(stderr, "Error! This ICMP packet is not valid because of the length.\n");
+                return;
+            }
+            sr_icmp_hdr_t *received_icmp_hdr = retrieve_icmp_hdr(packet);
+            if (received_icmp_hdr->icmp_type != 8) {
+                fprintf(stderr, "Error, this is not an echo request\n");
+                return;
+            }
+
+            uint16_t received_icmp_hdr_sum = received_icmp_hdr->icmp_sum;
+            received_icmp_hdr->icmp_sum = 0;
+            uint16_t computed_icmp_hdr_sum = cksum(received_icmp_hdr,len - sizeof(sr_ethernet_hdr_t) - sizeof(sr_ip_hdr_t)); 
+            
+            if (received_icmp_hdr_sum == computed_icmp_hdr_sum){
+                received_icmp_hdr->icmp_sum = computed_icmp_hdr_sum;
+            }
+            else{
+                printf("icmp header checksum: %d\n", received_icmp_hdr_sum);
+                printf("computed icmp header checksum: %d\n", computed_icmp_hdr_sum);
+                fprintf(stderr, "ICMP checksum is wrong\n");
+                return;
+            }  
+
+            send_icmp_packet(sr, packet, len, interface, 0, 0, dest_if);
+            return;
+         }
+         else {  /*Packet is not ICMP.*/
+            send_icmp_packet(sr, packet, len, interface, 3, 3, dest_if);
+            return;
+        }
+
+    }
+    /*forwarding this packet to the others*/
+    else{
+        /*length sanity-check*/ 
+        if (len < (sizeof(sr_arp_hdr_t) + sizeof(sr_ethernet_hdr_t))){
+            printf("size error: the size of the packet doesn't match the minimum of the valid packet\n");
+            return;
+        } 
+ 
         /*decrease the ttl*/
         printf("ip header's ttl: %d\n", received_ip_hdr -> ip_ttl);
         received_ip_hdr -> ip_ttl = received_ip_hdr -> ip_ttl - 1;
