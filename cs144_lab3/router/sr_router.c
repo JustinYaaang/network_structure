@@ -96,10 +96,6 @@ void send_icmp_packet(struct sr_instance *sr, uint8_t *packet, unsigned int len,
     if (icmp_type == 0) { /* Send back original data with headers if type 0 */
         outgoing_len = len;
         
-        
-                
-        
-        
         uint8_t *sent_icmp_packet = (uint8_t *)malloc(outgoing_len);
         sr_icmp_hdr_t *send_icmp_header = retrieve_icmp_hdr(sent_icmp_packet);
         
@@ -428,12 +424,11 @@ void  sr_handle_ip_packet(struct sr_instance* sr,
     if((received_ip_hdr -> ip_ttl) < 1){
         printf("ttl error: the ttl is expired\n");
         send_icmp_packet(sr, packet, len, interface, 11, 0, NULL);
-
         return;
-
     }
 
     /* Check if this packet is destined for one of the interfaces of the router*/
+    printf("received ip: %d\n", received_ip_hdr->ip_dst);
     struct sr_if *dest_if = get_interface_from_ip(sr, received_ip_hdr->ip_dst);
     if (dest_if){
         if (received_ip_hdr->ip_p == ip_protocol_icmp) {
@@ -484,6 +479,7 @@ void  sr_handle_ip_packet(struct sr_instance* sr,
         printf("ip header's ttl: %d\n", received_ip_hdr -> ip_ttl); 
 
         /*recompute the checksum*/
+        received_ip_hdr->ip_sum = 0;
         received_ip_hdr->ip_sum = cksum(received_ip_hdr, sizeof(sr_ip_hdr_t));
  
         /*match the ip prefix*/
