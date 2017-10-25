@@ -135,6 +135,7 @@ void send_icmp_packet(struct sr_instance *sr, uint8_t *packet, unsigned int len,
     else { /* Send back only headers if not type 0 */
         outgoing_len = sizeof(sr_icmp_t3_hdr_t) + sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t);
         uint8_t *sent_icmp_packet = (uint8_t *)malloc(outgoing_len);
+        
         sr_icmp_t3_hdr_t *send_icmp_header = retrieve_icmp_t3_hdr(sent_icmp_packet);
         memset(sent_icmp_packet, 0, sizeof(uint8_t) * outgoing_len);
         sr_ip_hdr_t *send_ip_header = retrieve_ip_hdr(sent_icmp_packet);
@@ -149,7 +150,7 @@ void send_icmp_packet(struct sr_instance *sr, uint8_t *packet, unsigned int len,
         send_icmp_header->icmp_type = icmp_type;
         send_icmp_header->icmp_sum = 0;
         /* Calculate cksum for header only if not type 0 */
-        send_icmp_header->icmp_sum = cksum(send_icmp_header, sizeof(sr_icmp_hdr_t));
+        send_icmp_header->icmp_sum = cksum(send_icmp_header, sizeof(sr_icmp_t3_hdr_t));
         /*Prepare IP Header*/
         memcpy(send_ip_header, original_ip_header, sizeof(sr_ip_hdr_t));
         send_ip_header->ip_ttl = INIT_TTL;
