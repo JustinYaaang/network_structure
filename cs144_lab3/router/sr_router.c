@@ -133,6 +133,8 @@ void send_icmp_packet(struct sr_instance *sr, uint8_t *packet, unsigned int len,
     
     }
     else { /* Send back only headers if not type 0 */
+        printf("sr_icmp hdr length: %lu\n", sizeof(sr_icmp_hdr_t));
+        printf("sr_icmp t3 hdr length: %lu\n", sizeof(sr_icmp_t3_hdr_t));
         outgoing_len = sizeof(sr_icmp_t3_hdr_t) + sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t);
         uint8_t *sent_icmp_packet = (uint8_t *)malloc(outgoing_len);
         
@@ -164,6 +166,7 @@ void send_icmp_packet(struct sr_instance *sr, uint8_t *packet, unsigned int len,
         memcpy(send_ethernet_header->ether_shost, outgoing_interface->addr, sizeof(uint8_t) * ETHER_ADDR_LEN);
         memcpy(send_ethernet_header->ether_dhost, original_ethernet_header->ether_shost, sizeof(uint8_t) * ETHER_ADDR_LEN);
         send_ethernet_header->ether_type = htons(ethertype_ip);
+        printf("icmp t3 sent\n");
         sr_send_packet(sr, sent_icmp_packet, outgoing_len, receiving_interface);
         free(sent_icmp_packet);
     }    
