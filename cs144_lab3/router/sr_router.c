@@ -85,6 +85,7 @@ sr_icmp_t3_hdr_t *retrieve_icmp_t3_hdr(uint8_t *packet)
 
 void send_icmp_packet(struct sr_instance *sr, uint8_t *packet, unsigned int len,
                              char *receiving_interface, uint8_t icmp_type, uint8_t icmp_code, struct sr_if *destination_interface)
+
 {    
     
     int outgoing_len;
@@ -117,17 +118,23 @@ void send_icmp_packet(struct sr_instance *sr, uint8_t *packet, unsigned int len,
         
         /*Prepare IP Header*/
         memcpy(send_ip_header, original_ip_header, sizeof(sr_ip_hdr_t));
-        send_ip_header->ip_ttl = INIT_TTL;
+        send_ip_header->ip_ttl = 64;
         send_ip_header->ip_p = ip_protocol_icmp;
         send_ip_header->ip_dst = original_ip_header->ip_src;
         send_ip_header->ip_len = htons(outgoing_len - sizeof(sr_ethernet_hdr_t));
         send_ip_header->ip_src = source_ip;
         send_ip_header->ip_sum = 0;
         send_ip_header->ip_sum = cksum(send_ip_header, sizeof(sr_ip_hdr_t));
+
         /*Prepare Ethernet Header*/
         memcpy(send_ethernet_header->ether_shost, outgoing_interface->addr, sizeof(uint8_t) * ETHER_ADDR_LEN);
         memcpy(send_ethernet_header->ether_dhost, original_ethernet_header->ether_shost, sizeof(uint8_t) * ETHER_ADDR_LEN);
+ 
         send_ethernet_header->ether_type = htons(ethertype_ip);
+        print_hdr_eth(sent_icmp_packet);
+        print_hdr_ip(sent_icmp_packet + sizeof(sr_ethernet_hdr_t));
+        print_hdr_icmp(sent_icmp_packet + sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t));
+
         sr_send_packet(sr, sent_icmp_packet, outgoing_len, receiving_interface);
         free(sent_icmp_packet);
     
@@ -139,33 +146,45 @@ void send_icmp_packet(struct sr_instance *sr, uint8_t *packet, unsigned int len,
         uint8_t *sent_icmp_packet = (uint8_t *)malloc(outgoing_len);
         
         sr_icmp_t3_hdr_t *send_icmp_header = retrieve_icmp_t3_hdr(sent_icmp_packet);
+
         memset(sent_icmp_packet, 0, sizeof(uint8_t) * outgoing_len);
         sr_ip_hdr_t *send_ip_header = retrieve_ip_hdr(sent_icmp_packet);
         sr_ethernet_hdr_t *send_ethernet_header = retrieve_ethernet_hdr(sent_icmp_packet);
         if (destination_interface) { /* Check if the packet was destined for an interface other than the one it came in on */
+	printf("helloi\n");
             source_ip = destination_interface->ip;
         }
         /*Copying 28 bytes of IP Header into icmp header for type 11 or type 3*/
         /*To check*/
-        memcpy(send_icmp_header->data, original_ip_header, ICMP_DATA_SIZE);
+        memcpy(send_icmp_header->data, original_ip_header, sizeof(sr_ip_hdr_t)+8);/*ICMP_DATA_SIZE);*/
         send_icmp_header->icmp_code = icmp_code;
         send_icmp_header->icmp_type = icmp_type;
+        send_icmp_header->unused = 0;
+        send_icmp_header->next_mtu = 0;
         send_icmp_header->icmp_sum = 0;
         /* Calculate cksum for header only if not type 0 */
         send_icmp_header->icmp_sum = cksum(send_icmp_header, sizeof(sr_icmp_t3_hdr_t));
         /*Prepare IP Header*/
         memcpy(send_ip_header, original_ip_header, sizeof(sr_ip_hdr_t));
-        send_ip_header->ip_ttl = INIT_TTL;
+        send_ip_header->ip_ttl = 64;
         send_ip_header->ip_p = ip_protocol_icmp;
         send_ip_header->ip_dst = original_ip_header->ip_src;
         send_ip_header->ip_len = htons(outgoing_len - sizeof(sr_ethernet_hdr_t));
         send_ip_header->ip_src = source_ip;
+        send_ip_header->ip_id = 0;
         send_ip_header->ip_sum = 0;
         send_ip_header->ip_sum = cksum(send_ip_header, sizeof(sr_ip_hdr_t));
+
         /*Prepare Ethernet Header*/
         memcpy(send_ethernet_header->ether_shost, outgoing_interface->addr, sizeof(uint8_t) * ETHER_ADDR_LEN);
         memcpy(send_ethernet_header->ether_dhost, original_ethernet_header->ether_shost, sizeof(uint8_t) * ETHER_ADDR_LEN);
+
         send_ethernet_header->ether_type = htons(ethertype_ip);
+
+        print_hdr_eth(sent_icmp_packet);
+        print_hdr_ip(sent_icmp_packet + sizeof(sr_ethernet_hdr_t));
+        print_hdr_icmp(sent_icmp_packet + sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t));
+
         printf("icmp t3 sent\n");
         sr_send_packet(sr, sent_icmp_packet, outgoing_len, receiving_interface);
         free(sent_icmp_packet);
