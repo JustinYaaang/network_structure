@@ -499,11 +499,12 @@ void  sr_handle_ip_packet(struct sr_instance* sr,
             return;
         }
 
-        /*send the packet*/
+        /*forwading the packet*/
         sr_ethernet_hdr_t *send_ethernet_hdr = retrieve_ethernet_hdr(packet);
         memcpy(send_ethernet_hdr->ether_shost, sr_get_interface(sr, best->interface)->addr, sizeof(uint8_t) * ETHER_ADDR_LEN);
         memcpy(send_ethernet_hdr->ether_dhost, next_hop_mac->mac, sizeof(uint8_t) * ETHER_ADDR_LEN);
         free(next_hop_mac);
+        printf("Going to forward the packet\n");
         sr_send_packet(sr, packet, len, sr_get_interface(sr, best->interface)->name);
         return;
 
