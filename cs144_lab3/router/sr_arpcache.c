@@ -15,9 +15,9 @@
 void handle_arpreq(struct sr_instance *sr, struct sr_arpreq *request)
 {
     if (difftime(time(NULL), request->sent) > 1.0) {
-        if (1){
-        /*if (request->times_sent >= 5) {
-        */    fprintf(stderr, "ARP request timed out. Going to send ICMP3 packet.\n");
+        /*if (1){*/
+        if (request->times_sent >= 5) {
+            fprintf(stderr, "ARP request timed out. Going to send ICMP3 packet.\n");
             struct sr_packet *waiting_packet = request->packets;
             while (waiting_packet) {
                 /* Get the interface that the packet came in on. We will send the ICMP back the way the original packet came. */
