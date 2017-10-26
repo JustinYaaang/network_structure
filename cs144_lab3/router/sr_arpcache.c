@@ -32,7 +32,7 @@ void handle_arpreq(struct sr_instance *sr, struct sr_arpreq *request)
  
                 printf("waiting packet len: %d\n", waiting_packet->len);
                 printf("new len: %lu\n", sizeof(sr_ip_hdr_t) + sizeof(sr_ethernet_hdr_t) + sizeof(sr_icmp_t3_hdr_t));
-                send_icmp_packet(sr, waiting_packet->buf, sizeof(sr_ip_hdr_t) + sizeof(sr_ethernet_hdr_t) + sizeof(sr_icmp_t3_hdr_t), outgoing_interface->name, 3, 1, NULL);
+                send_icmp_packet(sr, waiting_packet->buf, waiting_packet->len, outgoing_interface->name, 3, 1, NULL);
                 waiting_packet = waiting_packet->next;
             }
             sr_arpreq_destroy(&(sr->cache), request);

@@ -88,14 +88,13 @@ void send_icmp_packet(struct sr_instance *sr, uint8_t *packet, unsigned int len,
 
 {    
     
-    int outgoing_len;
+    int outgoing_len = len;
     sr_ethernet_hdr_t *original_ethernet_header = retrieve_ethernet_hdr(packet);
     sr_ip_hdr_t *original_ip_header = retrieve_ip_hdr(packet);
     struct sr_if *outgoing_interface = sr_get_interface(sr, receiving_interface);
     uint32_t source_ip = outgoing_interface->ip;
     
     if (icmp_type == 0) { /* Send back original data with headers if type 0 */
-        outgoing_len = len;
         
         uint8_t *sent_icmp_packet = (uint8_t *)malloc(outgoing_len);
         sr_icmp_hdr_t *send_icmp_header = retrieve_icmp_hdr(sent_icmp_packet);
@@ -142,7 +141,10 @@ void send_icmp_packet(struct sr_instance *sr, uint8_t *packet, unsigned int len,
     else { /* Send back only headers if not type 0 */
         printf("sr_icmp hdr length: %lu\n", sizeof(sr_icmp_hdr_t));
         printf("sr_icmp t3 hdr length: %lu\n", sizeof(sr_icmp_t3_hdr_t));
+
+        /*commented to test icmp
         outgoing_len = sizeof(sr_icmp_t3_hdr_t) + sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t);
+*/
         uint8_t *sent_icmp_packet = (uint8_t *)malloc(outgoing_len);
         
         sr_icmp_t3_hdr_t *send_icmp_header = retrieve_icmp_t3_hdr(sent_icmp_packet);
