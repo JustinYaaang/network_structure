@@ -401,6 +401,12 @@ void  sr_handle_ip_packet(struct sr_instance* sr,
     printf("received ip: %d\n", received_ip_hdr->ip_dst);
     struct sr_if *dest_if = get_interface_from_ip(sr, received_ip_hdr->ip_dst);
     if (dest_if){
+ 
+        if((received_ip_hdr -> ip_ttl) < 1){
+            printf("ttl error: the ttl is expired\n");
+            send_icmp_packet(sr, packet, len, interface, 11, 0, NULL);
+            return;
+        }
         if (received_ip_hdr->ip_p == ip_protocol_icmp) {
             if (len < (sizeof(sr_icmp_hdr_t) + sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t))) {
                 fprintf(stderr, "Error! This ICMP packet is not valid because of the length.\n");
@@ -443,6 +449,12 @@ void  sr_handle_ip_packet(struct sr_instance* sr,
             return;
         } 
  
+        if((received_ip_hdr -> ip_ttl) < 2){
+            printf("ttl error: the ttl is expired\n");
+            send_icmp_packet(sr, packet, len, interface, 11, 0, NULL);
+            return;
+        }
+
         /*decrease the ttl*/
         printf("ip header's ttl: %d\n", received_ip_hdr -> ip_ttl);
         received_ip_hdr -> ip_ttl = received_ip_hdr -> ip_ttl - 1;
