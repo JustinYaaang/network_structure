@@ -73,5 +73,12 @@ void sr_add_interface(struct sr_instance* , const char* );
 void sr_set_ether_ip(struct sr_instance* , uint32_t );
 void sr_set_ether_addr(struct sr_instance* , const unsigned char* );
 void sr_print_if_list(struct sr_instance* );
+sr_arp_hdr_t *retrieve_arp_hdr(uint8_t *packet);
+sr_ip_hdr_t *retrieve_ip_hdr(uint8_t *packet);
+sr_ethernet_hdr_t *retrieve_ethernet_hdr(uint8_t *packet);
+sr_icmp_hdr_t *retrieve_icmp_hdr(uint8_t *packet);
+sr_icmp_t3_hdr_t *retrieve_icmp_t3_hdr(uint8_t *packet);
+struct sr_if *get_interface_from_eth(struct sr_instance *sr, uint8_t *eth_address);
+void send_icmp_packet(struct sr_instance *sr, uint8_t *packet, unsigned int len,char *receiving_interface, uint8_t icmp_type, uint8_t icmp_code,struct sr_if *destination_interface);
 
 #endif /* SR_ROUTER_H */
