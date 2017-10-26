@@ -142,9 +142,7 @@ void send_icmp_packet(struct sr_instance *sr, uint8_t *packet, unsigned int len,
         printf("sr_icmp hdr length: %lu\n", sizeof(sr_icmp_hdr_t));
         printf("sr_icmp t3 hdr length: %lu\n", sizeof(sr_icmp_t3_hdr_t));
 
-        /*commented to test icmp
         outgoing_len = sizeof(sr_icmp_t3_hdr_t) + sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t);
-*/
         uint8_t *sent_icmp_packet = (uint8_t *)malloc(outgoing_len);
         
         sr_icmp_t3_hdr_t *send_icmp_header = retrieve_icmp_t3_hdr(sent_icmp_packet);
@@ -165,9 +163,8 @@ void send_icmp_packet(struct sr_instance *sr, uint8_t *packet, unsigned int len,
         send_icmp_header->next_mtu = 0;
         send_icmp_header->icmp_sum = 0;
         /* Calculate cksum for header only if not type 0 */
-        /*commented to test icmp
         send_icmp_header->icmp_sum = cksum(send_icmp_header, sizeof(sr_icmp_t3_hdr_t));
-*/
+
         send_icmp_header->icmp_sum = cksum(send_icmp_header, outgoing_len - sizeof(sr_ethernet_hdr_t)-sizeof(sr_ip_hdr_t));
         /*Prepare IP Header*/
         memcpy(send_ip_header, original_ip_header, sizeof(sr_ip_hdr_t));

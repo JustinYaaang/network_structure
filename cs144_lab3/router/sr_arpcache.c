@@ -21,7 +21,7 @@ void handle_arpreq(struct sr_instance *sr, struct sr_arpreq *request)
             struct sr_packet *waiting_packet = request->packets;
             while (waiting_packet) {
                 /* Get the interface that the packet came in on. We will send the ICMP back the way the original packet came. */
-                uint8_t *icmp_packet_outgoing_interface_eth_address = (retrieve_ethernet_hdr(waiting_packet->buf))->ether_dhost;
+                uint8_t *icmp_packet_outgoing_interface_eth_address = (retrieve_ethernet_hdr(waiting_packet->buf))->ether_shost;
                 struct sr_if *outgoing_interface = get_interface_from_eth(sr, icmp_packet_outgoing_interface_eth_address);
                 if (NULL == outgoing_interface) {
                     fprintf(stderr, "Error: Ethernet address in original packet did not match an interface on this router.\n");
